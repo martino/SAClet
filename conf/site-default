@@ -1,0 +1,105 @@
+upstream app_server {
+    server 127.0.0.1:9000 fail_timeout=0;
+}
+
+geo $dollar {
+    default "$";
+}
+
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server ipv6only=on;
+
+    root /home/django/dist;
+    index index.html index.htm;
+
+    client_max_body_size 4G;
+    server_name _;
+
+    keepalive_timeout 5;
+
+    auth_basic "Restricted";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    location ~* ^/datatxt/cl/models/v1/$ {
+                resolver 8.8.8.8;
+                set $auth "&${dollar}app_id=YOUR_APP_ID&${dollar}app_key=YOUR_APP_KEY";
+                proxy_redirect  off;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_pass https://api.dandelion.eu/datatxt/cl/models/v1/?$args$auth;
+
+        }
+
+        location ~* ^/datatxt/cl/v1/(.*) {
+                resolver 8.8.8.8;
+                set $auth "?${dollar}app_id=YOUR_APP_ID&${dollar}app_key=YOUR_APP_KEY";
+                proxy_redirect  off;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_pass https://api.dandelion.eu/datatxt/cl/v1/$1$auth;
+
+        }
+
+        location ~* ^/datagraph/wikisearch/v1(.*) {
+                resolver 8.8.8.8;
+                set $auth "&${dollar}app_id=YOUR_APP_ID&${dollar}app_key=YOUR_APP_KEY";
+                proxy_redirect  off;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_pass https://api.dandelion.eu/datagraph/wikisearch/v1/?$args$auth;
+
+        }
+
+
+        location ~* ^/datatxt/rel/v1(.*) {
+                resolver 8.8.8.8;
+                set $auth "&${dollar}app_id=YOUR_APP_ID&${dollar}app_key=YOUR_APP_KEY";
+                proxy_redirect  off;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_pass https://api.dandelion.eu/datatxt/rel/v1/?$args$auth;
+	}
+
+ 	location ~* ^/_topic(.*) {
+                resolver 8.8.8.8;
+                proxy_redirect  off;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_pass http://api.dandelion.eu/datatxt/_topic?$1$args$auth;
+
+        }
+
+    # Your Django project's media files - amend as required
+    location /media  {
+        alias /home/django/django_project/django_project/media;
+    }
+
+    # your Django project's static files - amend as required
+    location /static {
+        alias /home/django/django_project/django_project/static; 
+    }
+
+    location ~* ^/api/* {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+        proxy_pass http://app_server;
+    }
+
+    location / {
+	try_files $uri $uri/ =404;
+    }
+    
+}
